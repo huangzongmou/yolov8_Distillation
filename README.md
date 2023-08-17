@@ -7,7 +7,12 @@
 
 ## 学生模型
 
+    model_s = YOLO('yolov8s.pt')
     model_s.train(data=data, epochs=100, imgsz=640, Distillation = model_t.model)
+
+## 提示
+
+    选择蒸馏方法施主自行到/ultralytics/yolo/engine/trainer.py：176行更改通道数以及CWDLoss 或者 MGDLoss。
 
 ## 效果
 
