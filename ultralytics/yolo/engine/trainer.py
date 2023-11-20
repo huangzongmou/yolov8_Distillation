@@ -175,6 +175,8 @@ class Distillation_loss:
         # channels_t=[128,256,512,512,512,256,512,512]
         channels_s=[128,256,128,64,128,256]
         channels_t=[512,512,512,256,512,512]
+        # channels_s=[64,128,256]
+        # channels_t=[256,512,512]
         self.D_loss_fn = FeatureLoss(channels_s=channels_s,channels_t=channels_t)
        
         self.teacher_module_pairs = []
@@ -457,6 +459,7 @@ class BaseTrainer:
         self.accumulate = max(round(self.args.nbs / self.batch_size), 1)  # accumulate loss before optimizing
         weight_decay = self.args.weight_decay * self.batch_size * self.accumulate / self.args.nbs  # scale weight_decay
         self.optimizer = self.build_optimizer(model=self.model,
+                                              model1=self.Distillation,
                                               name=self.args.optimizer,
                                               lr=self.args.lr0,
                                               momentum=self.args.momentum,
@@ -842,7 +845,7 @@ class BaseTrainer:
                 self.train_loader.dataset.close_mosaic(hyp=self.args)
 
     @staticmethod
-    def build_optimizer(model, name='Adam', lr=0.001, momentum=0.9, decay=1e-5):
+    def build_optimizer(model,model1, name='Adam', lr=0.001, momentum=0.9, decay=1e-5):
         """
         Builds an optimizer with the specified parameters and parameter groups.
 
@@ -859,6 +862,15 @@ class BaseTrainer:
         g = [], [], []  # optimizer parameter groups
         bn = tuple(v for k, v in nn.__dict__.items() if 'Norm' in k)  # normalization layers, i.e. BatchNorm2d()
         for v in model.modules():
+            if hasattr(v, 'bias') and isinstance(v.bias, nn.Parameter):  # bias (no decay)
+                g[2].append(v.bias)
+            if isinstance(v, bn):  # weight (no decay)
+                g[1].append(v.weight)
+            elif hasattr(v, 'weight') and isinstance(v.weight, nn.Parameter):  # weight (with decay)
+                g[0].append(v.weight)
+
+        for v in model1.modules():
+            # print(v)
             if hasattr(v, 'bias') and isinstance(v.bias, nn.Parameter):  # bias (no decay)
                 g[2].append(v.bias)
             if isinstance(v, bn):  # weight (no decay)
